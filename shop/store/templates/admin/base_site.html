@@ -1,0 +1,17 @@
+{% extends "admin/base.html" %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+{% block extrahead %}{{ block.super }}<meta name="theme-color" content="#0a7c62">{% endblock %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  :root, html[data-theme="light"] {
+    --primary: #0e9f7e; --secondary: #0a7c62; --accent: #ffffff; --primary-fg: #fff;
+    --header-color: #e3f6f0; --header-branding-color: #ffffff; --header-bg: #0a7c62;
+    --breadcrumbs-bg: #0e9f7e; --link-fg: #0a7c62; --link-hover-color: #065a47;
+    --button-bg: #0e9f7e; --button-hover-bg: #0a7c62; --default-button-bg: #0a7c62; --default-button-hover-bg: #065a47;
+    --selected-row: #e3f6f0;
+  }
+  #site-name a { font-weight: 700; }
+</style>{% endblock %}
+{% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}">✦ {{ site_header|default:_('Django administration') }}</a></div>
+{% if user.is_anonymous %}{% include "admin/color_theme_toggle.html" %}{% endif %}{% endblock %}
+{% block nav-global %}{% endblock %}

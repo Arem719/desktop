@@ -1,0 +1,12 @@
+{% extends "store/base.html" %}
+{% block title %}Реєстрація — ЧистоДім{% endblock %}
+{% block content %}
+<div class="card form-card">
+  <h1>Реєстрація</h1>
+  <form method="post">{% csrf_token %}
+    {% for field in form %}{% include "store/_field.html" %}{% endfor %}
+    <button class="btn btn-block">Створити акаунт</button>
+  </form>
+  <p class="muted" style="text-align:center">Вже є акаунт? <a href="{% url 'login' %}" style="color:var(--brand);font-weight:600">Увійти</a></p>
+</div>
+{% endblock %}

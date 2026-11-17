@@ -1,0 +1,16 @@
+{% extends "store/base.html" %}
+{% block title %}Кабінет — ЧистоДім{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <h1>Привіт, {{ user.first_name|default:user.username }}!</h1>
+  <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-ghost">Вийти</button></form>
+</div>
+<h2>Мої замовлення</h2>
+{% for o in orders %}
+<div class="card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>№{{ o.pk }} · {{ o.created|date:"d.m.Y H:i" }}</b><span class="status">{{ o.get_status_display }}</span></div>
+  <ul class="muted" style="margin:8px 0;padding-left:18px">{% for i in o.items.all %}<li>{{ i.name }} × {{ i.quantity }}</li>{% endfor %}</ul>
+  <b>{{ o.total|floatformat:0 }} ₴</b> · {{ o.get_delivery_display }}
+</div>
+{% empty %}<div class="empty card"><div class="big">📦</div><p>Замовлень ще немає</p></div>{% endfor %}
+{% endblock %}

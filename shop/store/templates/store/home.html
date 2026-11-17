@@ -1,0 +1,22 @@
+{% extends "store/base.html" %}
+{% block content %}
+<section class="hero">
+  <div class="hero-bubbles"><span style="width:220px;height:220px;right:-40px;top:-60px"></span><span style="width:120px;height:120px;right:180px;bottom:-40px"></span></div>
+  <h1>Чистота в домі та турбота про малюка</h1>
+  <p>Побутова хімія, підгузки й засоби гігієни за чесними цінами. Доставка Новою Поштою по всій Україні.</p>
+  <a href="{% url 'catalog' %}" class="btn">Перейти до каталогу →</a>
+</section>
+<div class="perks">
+  <div class="perk"><span class="perk-ico">🚚</span><div><b>Швидка доставка</b><span class="muted">Відправка в день замовлення</span></div></div>
+  <div class="perk"><span class="perk-ico">💳</span><div><b>Оплата при отриманні</b><span class="muted">Або переказом на картку</span></div></div>
+  <div class="perk"><span class="perk-ico">✅</span><div><b>Оригінальні товари</b><span class="muted">Тільки від офіційних постачальників</span></div></div>
+</div>
+
+<h2>Категорії</h2>
+<div class="cat-tiles">
+  {% for c in nav_categories %}<a class="cat-tile" href="{{ c.get_absolute_url }}"><span class="ico">{{ c.icon }}</span>{{ c.name }}</a>{% endfor %}
+</div>
+
+{% if sale %}<h2>🔥 Знижки</h2><div class="grid">{% for p in sale %}{% include "store/_card.html" %}{% endfor %}</div>{% endif %}
+{% if hits %}<h2>⭐ Хіти продажів</h2><div class="grid">{% for p in hits %}{% include "store/_card.html" %}{% endfor %}</div>{% endif %}
+{% endblock %}

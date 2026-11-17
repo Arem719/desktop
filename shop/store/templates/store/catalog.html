@@ -1,0 +1,27 @@
+{% extends "store/base.html" %}
+{% block title %}{% if category %}{{ category.name }}{% else %}Каталог{% endif %} — ЧистоДім{% endblock %}
+{% block content %}
+<h1>{% if q %}Пошук: «{{ q }}»{% elif category %}{{ category.icon }} {{ category.name }}{% else %}Усі товари{% endif %}</h1>
+<form class="toolbar" method="get">
+  {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+  <select name="sort" onchange="this.form.submit()" aria-label="Сортування">
+    <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Популярні</option>
+    <option value="cheap" {% if sort == 'cheap' %}selected{% endif %}>Спочатку дешевші</option>
+    <option value="expensive" {% if sort == 'expensive' %}selected{% endif %}>Спочатку дорожчі</option>
+    <option value="new" {% if sort == 'new' %}selected{% endif %}>Новинки</option>
+  </select>
+  <label><input type="checkbox" name="sale" value="1" onchange="this.form.submit()" {% if request.GET.sale %}checked{% endif %}> Зі знижкою</label>
+  <label><input type="checkbox" name="instock" value="1" onchange="this.form.submit()" {% if request.GET.instock %}checked{% endif %}> В наявності</label>
+  <span class="muted" style="margin-left:auto">{{ page.paginator.count }} товарів</span>
+</form>
+{% if page.object_list %}
+<div class="grid">{% for p in page.object_list %}{% include "store/_card.html" %}{% endfor %}</div>
+{% if page.has_other_pages %}<nav class="pager">
+  {% if page.has_previous %}<a href="?{% if q %}q={{ q|urlencode }}&{% endif %}sort={{ sort }}&page={{ page.previous_page_number }}">←</a>{% endif %}
+  <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a href="?{% if q %}q={{ q|urlencode }}&{% endif %}sort={{ sort }}&page={{ page.next_page_number }}">→</a>{% endif %}
+</nav>{% endif %}
+{% else %}
+<div class="empty card"><div class="big">🔍</div><p>Нічого не знайдено. Спробуйте інший запит.</p><a class="btn" href="{% url 'catalog' %}">Увесь каталог</a></div>
+{% endif %}
+{% endblock %}

@@ -10,3 +10,4 @@
 - User is installing plugins via Plugins → Add from a repository: i-have-adhd, claude-seo, superpowers, brag (+ optional humanizer, karpathy, ui-ux-pro-max; claude-code-setup from Anthropic sources).
 - TODO when user confirms plugins installed: delete stand-ins adhd-mode, seo-ai-audit, brag; commit; push.
 - Environment allows TikTok hosts: vt.tiktok.com, www.tiktok.com, v16m-webapp.tiktokcdn-us.com.
+- Shop: Django site in `shop/` (README inside). Tests: `cd shop && python manage.py test store`. Demo data: `manage.py seed` (admin/admin12345). Suggested moving it to its own repo.

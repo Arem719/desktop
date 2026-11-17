@@ -1,0 +1,39 @@
+{% extends "store/base.html" %}
+{% block title %}Кошик — ЧистоДім{% endblock %}
+{% block content %}
+<h1>Кошик</h1>
+{% if items %}
+<div class="two-col">
+  <div class="card">
+    {% for i in items %}{% with p=i.product %}
+    <div class="line">
+      <a href="{{ p.get_absolute_url }}" class="pimg">{% if p.image %}<img src="{{ p.image.url }}" alt="">{% else %}{{ p.category.icon }}{% endif %}</a>
+      <div>
+        <a href="{{ p.get_absolute_url }}" class="pname">{{ p.name }}</a>
+        <div class="muted" style="font-size:14px">{{ p.price|floatformat:0 }} ₴ / шт</div>
+        <div class="line-actions">
+          <form method="post" action="{% url 'cart_update' p.pk %}">{% csrf_token %}
+            <div class="qty"><button type="button" data-step="-1" data-submit>−</button><input type="number" name="quantity" value="{{ i.quantity }}" min="0" max="{{ p.stock }}" onchange="this.form.submit()"><button type="button" data-step="1" data-submit>+</button></div>
+          </form>
+          <form method="post" action="{% url 'cart_remove' p.pk %}">{% csrf_token %}<button class="link-btn">Видалити</button></form>
+        </div>
+      </div>
+      <b>{{ i.subtotal|floatformat:0 }} ₴</b>
+    </div>
+    {% endwith %}{% endfor %}
+  </div>
+  <aside class="card summary">
+    <div class="summary-row"><span>Товари</span><span>{{ total|floatformat:0 }} ₴</span></div>
+    <div class="summary-row"><span>Доставка</span><span>{% if total >= free_delivery_from %}безкоштовно{% else %}за тарифом перевізника{% endif %}</span></div>
+    {% if total < free_delivery_from %}
+      <div class="progress"><div style="width:{% widthratio total free_delivery_from 100 %}%"></div></div>
+      <div class="muted" style="font-size:13px">Ще трохи до безкоштовної доставки від {{ free_delivery_from }} ₴</div>
+    {% endif %}
+    <div class="summary-row summary-total"><span>Разом</span><span>{{ total|floatformat:0 }} ₴</span></div>
+    <a href="{% url 'checkout' %}" class="btn btn-block" style="margin-top:12px">Оформити замовлення</a>
+  </aside>
+</div>
+{% else %}
+<div class="empty card"><div class="big">🛒</div><p>Кошик порожній</p><a class="btn" href="{% url 'catalog' %}">До покупок</a></div>
+{% endif %}
+{% endblock %}

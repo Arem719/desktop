@@ -1,0 +1,53 @@
+{% load static %}<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a7c62">
+  <title>{% block title %}ЧистоДім — побутова хімія, підгузки, гігієна{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'store/style.css' %}">
+</head>
+<body>
+<div class="topbar">Безкоштовна доставка від {{ free_delivery_from }} грн · Відправка в день замовлення</div>
+<header class="header">
+  <div class="container">
+    <a href="{% url 'home' %}" class="logo"><span class="logo-mark">✦</span>ЧистоДім</a>
+    <form class="search" action="{% url 'catalog' %}" method="get">
+      <input type="search" name="q" value="{{ q|default:'' }}" placeholder="Пошук: порошок, підгузки, мило…" aria-label="Пошук">
+    </form>
+    <nav class="header-actions">
+      {% include "store/_icons.html" with which="nav" %}
+    </nav>
+  </div>
+</header>
+<nav class="catnav"><div class="container">
+  <a class="chip {% if not category and request.resolver_match.url_name == 'catalog' %}active{% endif %}" href="{% url 'catalog' %}">Усі товари</a>
+  {% for c in nav_categories %}<a class="chip {% if category == c %}active{% endif %}" href="{{ c.get_absolute_url }}">{{ c.icon }} {{ c.name }}</a>{% endfor %}
+</div></nav>
+
+<main><div class="container">
+  {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% block content %}{% endblock %}
+</div></main>
+
+<footer class="footer"><div class="container">
+  <div><b>ЧистоДім</b>Побутова хімія, підгузки та засоби гігієни з доставкою по Україні.</div>
+  <div><b>Покупцям</b><a href="{% url 'catalog' %}">Каталог</a><a href="{% url 'cart' %}">Кошик</a><a href="{% url 'account' %}">Мої замовлення</a></div>
+  <div><b>Контакти</b><a href="tel:+380000000000">+38 (000) 000-00-00</a><span>Пн–Нд 9:00–20:00</span></div>
+</div></footer>
+
+<nav class="tabbar">{% include "store/_icons.html" with which="tab" %}</nav>
+<script>
+// +/- buttons for quantity inputs
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-step]'); if (!b) return;
+  const input = b.parentElement.querySelector('input');
+  const v = Math.max(+input.min || 0, Math.min(+input.max || 999, (+input.value || 0) + +b.dataset.step));
+  input.value = v;
+  if (b.dataset.submit !== undefined) b.form.submit();
+});
+</script>
+</body>
+</html>

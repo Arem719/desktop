@@ -1,0 +1,28 @@
+{% extends "store/base.html" %}
+{% block title %}Оформлення — ЧистоДім{% endblock %}
+{% block content %}
+<h1>Оформлення замовлення</h1>
+<form method="post" class="two-col">{% csrf_token %}
+  <div class="card">
+    {{ form.non_field_errors }}
+    <div class="form-grid">
+      {% include "store/_field.html" with field=form.full_name %}
+      {% include "store/_field.html" with field=form.phone %}
+    </div>
+    {% include "store/_field.html" with field=form.email %}
+    {% include "store/_field.html" with field=form.delivery %}
+    <div class="form-grid">
+      {% include "store/_field.html" with field=form.city %}
+      {% include "store/_field.html" with field=form.address %}
+    </div>
+    {% include "store/_field.html" with field=form.payment %}
+    {% include "store/_field.html" with field=form.comment %}
+  </div>
+  <aside class="card summary">
+    {% for i in items %}<div class="summary-row"><span>{{ i.product.name|truncatechars:28 }} × {{ i.quantity }}</span><span>{{ i.subtotal|floatformat:0 }} ₴</span></div>{% endfor %}
+    <div class="summary-row summary-total"><span>Разом</span><span>{{ cart.total|floatformat:0 }} ₴</span></div>
+    <button class="btn btn-block" style="margin-top:12px">Підтвердити замовлення</button>
+    {% if not user.is_authenticated %}<p class="muted" style="font-size:13px"><a href="{% url 'login' %}?next={% url 'checkout' %}" style="color:var(--brand)">Увійдіть</a>, щоб бачити історію замовлень.</p>{% endif %}
+  </aside>
+</form>
+{% endblock %}

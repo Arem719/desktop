@@ -1,0 +1,7 @@
+{% extends "store/base.html" %}
+{% block title %}Обране — ЧистоДім{% endblock %}
+{% block content %}
+<h1>Обране</h1>
+{% if products %}<div class="grid">{% for p in products %}{% include "store/_card.html" %}{% endfor %}</div>
+{% else %}<div class="empty card"><div class="big">🤍</div><p>Тут будуть товари, які вам сподобались</p><a class="btn" href="{% url 'catalog' %}">До каталогу</a></div>{% endif %}
+{% endblock %}
