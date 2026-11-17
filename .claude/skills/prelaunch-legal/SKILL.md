@@ -30,5 +30,8 @@ Scan the codebase to answer each item from evidence (what data fields, which thi
 19. **Marketing** – email opt-in, unsubscribe link (CAN-SPAM / GDPR), no fake reviews.
 20. **Imprint / contacts** – legal entity, address, support email (Impressum in DE/AT).
 
+## Extra items called out in the source video
+Public offer / refund terms, cookie banner with consent in several formats, data minimisation (collect nothing extra), audit third-party SDKs, **remove dark patterns, hidden payments, fake reviews and empty promises**, image alt text, colour contrast, keyboard navigation, company details, parental consent for children's data, unsubscribe in mailings, font/image licences, data deletion on request.
+
 ## Output
 A checklist table `# | item | status (ok / missing / risk) | evidence | action`, plus generated draft files (`PRIVACY.md`, `TERMS.md`, `THIRD_PARTY_NOTICES.md`) when the user agrees.

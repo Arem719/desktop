@@ -1,0 +1,1 @@
+Source: https://github.com/petergyang/no-ai-slop @ 000650b (MIT)
