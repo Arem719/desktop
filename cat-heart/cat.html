@@ -1,0 +1,86 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#ffd6e2;overflow:hidden}svg{display:block;width:100vw;height:100vh}</style>
+</head><body>
+<svg id="s" viewBox="0 0 1080 1920" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <radialGradient id="bg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#fff0f5"/><stop offset="1" stop-color="#ffc2d4"/></radialGradient>
+  <radialGradient id="fur" cx="45%" cy="35%" r="70%"><stop offset="0" stop-color="#fffaf3"/><stop offset="1" stop-color="#f3d9c0"/></radialGradient>
+  <radialGradient id="iris" cx="50%" cy="55%" r="55%"><stop offset="0" stop-color="#7ad3ff"/><stop offset=".7" stop-color="#3a8fd6"/><stop offset="1" stop-color="#1d4f8f"/></radialGradient>
+  <radialGradient id="heartG" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ff9ab8"/><stop offset=".6" stop-color="#ff3d75"/><stop offset="1" stop-color="#d81b55"/></radialGradient>
+  <path id="h" d="M0 -0.25 C-0.12 -0.6 -0.62 -0.62 -0.62 -0.2 C-0.62 0.12 -0.3 0.35 0 0.6 C0.3 0.35 0.62 0.12 0.62 -0.2 C0.62 -0.62 0.12 -0.6 0 -0.25Z"/>
+  <clipPath id="ec"><ellipse rx="100" ry="108"/></clipPath>
+  <g id="eye">
+    <ellipse rx="100" ry="108" fill="#fff"/>
+    <circle r="88" fill="url(#iris)"/>
+    <circle class="pupil" r="58" fill="#14141f"/>
+    <g class="eheart" transform="scale(0)"><use href="#h" fill="url(#heartG)" transform="scale(80)"/>
+      <ellipse cx="-18" cy="-26" rx="10" ry="6" fill="#fff" opacity=".8" transform="rotate(-30 -18 -26)"/></g>
+    <circle cx="-30" cy="-38" r="22" fill="#fff"/>
+    <circle cx="32" cy="30" r="10" fill="#fff" opacity=".9"/>
+    <rect clip-path="url(#ec)" class="lid" x="-110" y="-120" width="220" height="0" fill="url(#fur)"/>
+  </g>
+</defs>
+<rect x="-5000" y="-5000" width="11080" height="11920" fill="url(#bg)"/>
+<g id="floaters"></g>
+<g id="cat">
+  <!-- ears -->
+  <path d="M250 820 L230 470 L470 680Z" fill="#f3d9c0"/><path d="M275 760 L265 540 L420 680Z" fill="#ffb3c7"/>
+  <path d="M830 820 L850 470 L610 680Z" fill="#f3d9c0"/><path d="M805 760 L815 540 L660 680Z" fill="#ffb3c7"/>
+  <!-- body -->
+  <ellipse cx="540" cy="1560" rx="330" ry="300" fill="url(#fur)"/>
+  <ellipse cx="420" cy="1800" rx="90" ry="60" fill="#fffaf3"/><ellipse cx="660" cy="1800" rx="90" ry="60" fill="#fffaf3"/>
+  <!-- head -->
+  <ellipse cx="540" cy="1000" rx="400" ry="350" fill="url(#fur)"/>
+  <use href="#eye" class="eL" x="390" y="960"/>
+  <use href="#eye" class="eR" x="690" y="960"/>
+  <ellipse cx="300" cy="1110" rx="60" ry="34" fill="#ff9db8" opacity=".55"/>
+  <ellipse cx="780" cy="1110" rx="60" ry="34" fill="#ff9db8" opacity=".55"/>
+  <path d="M520 1080 Q540 1100 560 1080 Q540 1070 520 1080Z" fill="#ff7fa3"/>
+  <path d="M540 1095 Q540 1130 505 1135 M540 1095 Q540 1130 575 1135" stroke="#7a5a4a" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <g stroke="#c9ad98" stroke-width="5" stroke-linecap="round">
+    <path d="M240 1060 L120 1030"/><path d="M240 1090 L110 1100"/><path d="M840 1060 L960 1030"/><path d="M840 1090 L970 1100"/>
+  </g>
+</g>
+<rect id="flash" x="-5000" y="-5000" width="11080" height="11920" fill="#ff3d75" opacity="0"/>
+</svg>
+<script>
+const S=document.getElementById('s'), cat=document.getElementById('cat'), fl=document.getElementById('floaters'), flash=document.getElementById('flash');
+const DUR=7.5;
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)), lerp=(a,b,t)=>a+(b-a)*t;
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const back=t=>{const c=1.70158*1.6;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)};
+// floating hearts
+const F=[];for(let i=0;i<14;i++){const u=document.createElementNS('http://www.w3.org/2000/svg','use');u.setAttribute('href','#h');u.setAttribute('fill',i%2?'#ff8fb1':'#ffb8cc');fl.appendChild(u);F.push({u,x:(i*137)%1080,s:30+(i*23)%40,sp:80+(i*41)%90,ph:i*0.7});}
+const EX=390,EY=960; // left eye centre (zoom target)
+function render(t){
+  // idle bob
+  const bob=Math.sin(t*3)*8*(1-cl((t-1.8)/0.5));
+  cat.setAttribute('transform',`translate(0 ${bob})`);
+  // blink at ~1.0s
+  const b=cl(1-Math.abs(t-1.1)/0.12); const lidH=b*230;
+  document.querySelectorAll('.lid').forEach(l=>l.setAttribute('height',lidH));
+  // heart in pupil
+  const hp=cl((t-3.3)/0.6); const beat=1+(t>3.9?(t>6.2?0.16:0.08)*Math.pow(Math.max(0,Math.sin((t-3.3)*7)),2):0);
+  const hs=(hp>0?back(hp):0)*beat;
+  document.querySelectorAll('.eheart').forEach(e=>e.setAttribute('transform',`scale(${hs})`));
+  document.querySelectorAll('.pupil').forEach(p=>p.setAttribute('r',58+hp*12));
+  // camera
+  let w;
+  const z1=ease(cl((t-1.8)/2.0)); // full -> eye
+  const z2=ease(cl((t-4.4)/2.0)); // eye -> heart
+  w=Math.exp(lerp(Math.log(860),Math.log(300),z1));
+  w=Math.exp(lerp(Math.log(w),Math.log(130),z2));
+  const cx=lerp(540,EX,z1), cy=lerp(1240,EY,z1)+z2*4;
+  const h=w*16/9;
+  S.setAttribute('viewBox',`${cx-w/2} ${cy-h/2} ${w} ${h}`);
+  // floaters (only visible at start)
+  F.forEach(f=>{const y=1950-((t*f.sp+f.ph*300)%2100);const x=f.x+Math.sin(t*2+f.ph)*30;f.u.setAttribute('transform',`translate(${x} ${y}) scale(${f.s})`);f.u.setAttribute('opacity',0.8*(1-z1));});
+  // final heartbeat pulse
+  const pulse=t>6.4?0.25*Math.pow(Math.max(0,Math.sin((t-6.4)*8)),4):0;
+  flash.setAttribute('opacity',pulse+cl((t-7.1)/0.4)*0.3);
+}
+window.render=render; window.DUR=DUR;
+if(!location.search.includes('rec')){const t0=performance.now();(function loop(){render(((performance.now()-t0)/1000)%(DUR+0.8));requestAnimationFrame(loop)})();}
+</script>
+</body></html>
