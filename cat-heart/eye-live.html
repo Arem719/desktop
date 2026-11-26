@@ -288,12 +288,31 @@ addEventListener('resize',fit);fit();
 function draw(){ctx.fillStyle='#010203';ctx.fillRect(0,0,W,H);
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const k=r*COLS+c,i=idx[k];if(i===0)continue;
     const q0=clip(Math.trunc(clip(fg[k*3],0,1)*(QL-.01)),0,QL-1),q1=clip(Math.trunc(clip(fg[k*3+1],0,1)*(QL-.01)),0,QL-1),q2=clip(Math.trunc(clip(fg[k*3+2],0,1)*(QL-.01)),0,QL-1);
-    ctx.fillStyle='#'+HEX[q0]+HEX[q1]+HEX[q2];ctx.fillText(RAMP[i],(c+.5)*CW,(r+.5)*CH)}}
+    ctx.fillStyle='#'+HEX[q0]+HEX[q1]+HEX[q2];ctx.fillText(RAMP[i],(c+.5)*CW,(r+.5)*CH)}
+  drawMsg(curT)}
 
-let t0=performance.now(),lastF=-1;
+// ---- message, typed out once the heart has fully opened ----
+const MSG=[["Для тебе, Дівчино",1.0],["від парубка ♥",0.8]];
+const T_MSG=T_HEART+T_HEART_D+0.4, CPS=9;
+function drawMsg(t){
+  const dt=t-T_MSG;if(dt<0)return;
+  let shown=Math.floor(dt*CPS);
+  const rows=[ROWS-5,ROWS-3];
+  ctx.save();ctx.font=`bold ${FONT_PX*1.25}px "Cascadia Mono",Consolas,"DejaVu Sans Mono","Courier New",monospace`;
+  MSG.forEach(([line,b],li)=>{const n=Math.min(line.length,Math.max(0,shown));shown-=line.length+3;
+    const sw=CW*1.25,x0=W/2-line.length*sw/2,y=(rows[li]+.5)*CH;
+    for(let i=0;i<n;i++){const ch=line[i];if(ch===' ')continue;
+      const fresh=Math.max(0,1-(dt*CPS-(i+(li?MSG[0][0].length+3:0)))/4);
+      ctx.shadowColor='rgba(255,70,130,.9)';ctx.shadowBlur=8+10*fresh;
+      const g=Math.round(150+105*fresh*b),bl=Math.round(190+65*fresh*b);
+      ctx.fillStyle=`rgb(255,${g},${bl})`;ctx.globalAlpha=b;ctx.fillText(ch,x0+(i+.5)*sw,y)}
+    if(n<line.length&&n>0&&Math.floor(t*3)%2===0){ctx.shadowBlur=0;ctx.fillStyle='#ff9cc0';ctx.fillText('_',x0+(n+.5)*sw,y)}});
+  ctx.restore()}
+
+let t0=performance.now(),lastF=-1,curT=0;
 function restart(){t0=performance.now();lastF=-1;reset()}
 addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')restart()});
 cv.addEventListener('click',restart);
-function tick(now){const t=(now-t0)/1000;if(t-lastF>=1/FPS-.002||lastF<0){const dt=Math.min(Math.max(t-S.last,0),.1);render_cells(t,dt);draw();lastF=t}requestAnimationFrame(tick)}
+function tick(now){const t=(now-t0)/1000;if(t-lastF>=1/FPS-.002||lastF<0){const dt=Math.min(Math.max(t-S.last,0),.1);render_cells(t,dt);curT=t;draw();lastF=t}requestAnimationFrame(tick)}
 reset();render_cells(0,0);draw();requestAnimationFrame(tick);
 </script>
