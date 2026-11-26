@@ -1,0 +1,319 @@
+<meta charset="utf-8">
+<title>Око → Космос</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#010203;--hint:#3a3f4a;color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+canvas{display:block;cursor:pointer;max-width:100%}
+#hint{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;
+  font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--hint);pointer-events:none;letter-spacing:.04em}
+</style>
+<canvas id="cv" aria-label="ASCII-анімація: око, космос і сердечко"></canvas>
+<div id="hint">тап або R — заново</div>
+<script>
+"use strict";
+// ---- port of eye.py (iremcnar/eyeTutorial) to the browser ----
+const SS=2, ASPECT=1.40, ROWS_=30, FPS=30;
+const T_OPEN=0.9,T_OPEN_D=2.4,T_BLINK=4.0,T_Z0=5.4,T_ZD=28.0,ZEND=14.0;
+const T_SPACE=T_Z0+T_ZD, T_HEART=T_Z0+3.5, T_HEART_D=26.0;
+const WO=0.78,HU=0.30,HL=0.20,RI=0.27,RP0=0.098,GS0=0.085;
+const RAMP=" .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+const NR=RAMP.length-1, QL=24;
+const CIDX={}; for(let i=0;i<RAMP.length;i++) CIDX[RAMP[i]]=i;
+
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rng=mulberry(5), prnd=mulberry(9);
+const uni=(r,a,b)=>a+(b-a)*r();
+const clip=(x,a,b)=>x<a?a:x>b?b:x;
+function ss(a,b,x){let t=(x-a)/(b-a);t=t<0?0:t>1?1:t;return t*t*(3-2*t)}
+function ease(t){t=t<0?0:t>1?1:t;return t*t*(3-2*t)}
+const zp=t=>ease((t-T_Z0)/T_ZD);
+const mix=(a,b,k)=>a+(b-a)*k;
+const mod=(a,n)=>((a%n)+n)%n;
+
+function upIdx(g,n){const i0=new Int32Array(n),i1=new Int32Array(n),f=new Float32Array(n);
+  for(let x=0;x<n;x++){const idx=x*g/n,fl=Math.floor(idx);i0[x]=fl%g;i1[x]=(i0[x]+1)%g;const ff=idx-fl;f[x]=ff*ff*(3-2*ff)}return{i0,i1,f}}
+function norm(a,k){let m=0;for(let i=0;i<a.length;i++)m+=a[i];m/=a.length;let v=0;for(let i=0;i<a.length;i++){const d=a[i]-m;v+=d*d}
+  const sd=Math.sqrt(v/a.length);for(let i=0;i<a.length;i++)a[i]=clip(0.5+(a[i]-m)/(sd*k+1e-9),0,1);return a}
+function tex2d(n,grids){const out=new Float32Array(n*n);let amp=1;
+  for(const g of grids){const b=new Float32Array(g*g);for(let i=0;i<g*g;i++)b[i]=rng();
+    const {i0,i1,f}=upIdx(g,n);const tmp=new Float32Array(g*n);
+    for(let r=0;r<g;r++)for(let x=0;x<n;x++)tmp[r*n+x]=b[r*g+i0[x]]*(1-f[x])+b[r*g+i1[x]]*f[x];
+    for(let y=0;y<n;y++){const a0=i0[y]*n,a1=i1[y]*n,fy=f[y];for(let x=0;x<n;x++)out[y*n+x]+=amp*(tmp[a0+x]*(1-fy)+tmp[a1+x]*fy)}
+    amp*=0.55}
+  return norm(out,4)}
+function noise1d(n,g){const b=new Float32Array(g);for(let i=0;i<g;i++)b[i]=rng();const {i0,i1,f}=upIdx(g,n);const o=new Float32Array(n);
+  for(let x=0;x<n;x++)o[x]=b[i0[x]]*(1-f[x])+b[i1[x]]*f[x];return o}
+function bil(T,n,u,v){const u0=Math.floor(u),v0=Math.floor(v),fu=u-u0,fv=v-v0;const i0=mod(u0,n),j0=mod(v0,n),i1=(i0+1)%n,j1=(j0+1)%n;
+  return (T[j0*n+i0]*(1-fu)+T[j0*n+i1]*fu)*(1-fv)+(T[j1*n+i0]*(1-fu)+T[j1*n+i1]*fu)*fv}
+
+const TS=tex2d(1024,[6,20,64,200]), TG=tex2d(1024,[8,24,64,160]);
+const TW=new Float32Array(512*512);for(let i=0;i<TW.length;i++)TW[i]=rng();
+const TV=tex2d(512,[5,12,30]);for(let i=0;i<TV.length;i++)TV[i]=1-Math.abs(2*TV[i]-1);
+const TV2=tex2d(512,[3,7,16]);for(let i=0;i<TV2.length;i++)TV2[i]=1-Math.abs(2*TV2[i]-1);
+
+const NA=4096;
+function comb(ws,gs,k){const parts=gs.map(g=>noise1d(NA,g));const o=new Float32Array(NA);for(let i=0;i<NA;i++){let s=0;for(let j=0;j<ws.length;j++)s+=ws[j]*parts[j][i];o[i]=s}return norm(o,k)}
+const A1=comb([.5,.3,.2],[900,300,120],3), A2=comb([.5,.3,.2],[700,200,80],3), A3=comb([1],[13],3), A4=comb([1],[48],3);
+
+const NS=3200;
+const SX=new Float32Array(NS),SY=new Float32Array(NS),SD=new Float32Array(NS),SB=new Float32Array(NS),SPH=new Float32Array(NS),SF=new Float32Array(NS),SCOL=new Float32Array(NS*3);
+for(let i=0;i<NS;i++){SX[i]=uni(rng,-1,1);SY[i]=uni(rng,-1,1);SD[i]=uni(rng,.06,1);SB[i]=.10+.90*Math.pow(rng(),3.5);
+  const tm=Math.pow(rng(),1.5);SCOL[i*3]=mix(.70,1.0,tm);SCOL[i*3+1]=mix(.82,.80,tm);SCOL[i*3+2]=mix(1.0,.55,tm);SPH[i]=uni(rng,0,6.28);SF[i]=uni(rng,1,3.5)}
+
+const GZ=[[0,0,0]];{const gr=mulberry(4);let tc=1.7;while(tc<40){GZ.push([tc,uni(gr,-.045,.045),uni(gr,-.022,.02)]);tc+=uni(gr,.9,2.4)}}
+const lr=mulberry(21), UP_L=[], LO_L=[];
+for(let i=0;i<44;i++)UP_L.push([-0.92+1.84*i/43,uni(lr,.92,1.08)]);
+for(let i=0;i<20;i++)LO_L.push([-0.70+1.40*i/19,uni(lr,.90,1.10)]);
+
+// ---- grid ----
+const CW=7, CH=13, FONT_PX=11.4;
+const ROWS=ROWS_, COLS=Math.floor(Math.floor(ROWS*CH*ASPECT/CW)/2)*2;
+const W=COLS*CW, H=ROWS*CH, GW=COLS*SS, GH=ROWS*SS, NP=GW*GH, NC=ROWS*COLS;
+const X=new Float32Array(NP),Y=new Float32Array(NP),RS=new Float32Array(NP);
+for(let j=0;j<GH;j++)for(let i=0;i<GW;i++){const p=j*GW+i;X[p]=((i+.5)*(CW/SS)-W/2)/H;Y[p]=((j+.5)*(CH/SS)-H/2)/H;RS[p]=Math.hypot(X[p],Y[p])}
+const RSC=new Float32Array(NC),HSC=new Float32Array(NC);
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const k=r*COLS+c;RSC[k]=Math.hypot(((c+.5)*CW-W/2)/H,((r+.5)*CH-H/2)/H);
+  HSC[k]=Number(((BigInt(r)*73856093n)^(BigInt(c)*19349663n)^0x5bd1e995n)%1009n)/1009}
+
+function blink_c(t){const d=t-T_BLINK;if(d<0||d>.36)return 0;if(d<.09)return ease(d/.09);if(d<.12)return 1;return 1-ease((d-.12)/.24)}
+function lid_open(t){let k=ease((t-T_OPEN)/T_OPEN_D);k=k*(1+.035*Math.sin(Math.PI*k));return Math.min(1,k)*(1-.985*blink_c(t))}
+function gaze(t){let prev=[0,0],cur=[0,0],te=0;for(const g of GZ){if(g[0]<=t){prev=cur;cur=[g[1],g[2]];te=g[0]}else break}
+  const k=ease((t-te)/.09);let gx=prev[0]+(cur[0]-prev[0])*k,gy=prev[1]+(cur[1]-prev[1])*k;
+  gx+=.003*Math.sin(t*1.3);gy+=.002*Math.sin(t*1.1+1);const amp=1-ease((t-T_Z0)/2.5);gy-=.03*blink_c(t);return[gx*amp,gy*amp]}
+function lid_edges(u0,ou){const s=u0/WO,wu=s<-.12?.88:1.12;const cu=Math.pow(Math.max(0,1-((s+.12)/wu)**2),.8),cl=Math.pow(Math.max(0,1-(s-.08)**2),.9);
+  const vc=.03*cl,vl=vc+(HL*cl-vc)*(.35+.65*ou),vu=vl+(-HU*cu-vl)*ou;return[vu,vl,cu,cl]}
+
+const img=new Float32Array(NP*3), pm=new Float32Array(NP), spb=new Float32Array(NP*3);
+const out3=[0,0,0];
+
+function heartPix(xs,ys,sz,hm,t,o){
+  const hx=xs/sz,hy=-ys/sz;
+  const nC=bil(TG,1024,hx*16+400,hy*16+100),nD=bil(TG,1024,hx*16+90,hy*16+530);
+  const nA=bil(TG,1024,hx*42+300,hy*42+700+t*.8),nB=bil(TG,1024,hx*110+80,hy*110+200);
+  const wob=1-.65*hm;
+  const hxw=hx+wob*.40*(nC-.5)+.05*(nA-.5),hyw=hy+wob*.40*(nD-.5)+.05*(nA-.5);
+  const qc=Math.sqrt(hxw*hxw+hyw*hyw)/.80-1;
+  const hyh=hyw+.12,fh=(hxw*hxw+hyh*hyh-1)**3-hxw*hxw*hyh**3,qh=.5*Math.cbrt(fh);
+  const q=qc*(1-hm)+qh*hm;
+  const ins=clip(-q/(.80-.35*hm),0,1),k=3+2.5*hm;
+  const body=q<0?.5+.5*Math.sqrt(ins):Math.exp(-clip(q,0,10)*k)*.5;
+  const tex=1+(.62+.80*nB-1)*.8, ip=Math.pow(ins,.8), bt=body*tex;
+  let r=bt*mix(.92,1.0,ip),g=bt*mix(.16,.58,ip),b=bt*mix(.40,.78,ip);
+  if(q>0){const halo=Math.exp(-clip(q,0,10)*1.6)*.20*(.5+nA);r+=halo*.78;g+=halo*.10;b+=halo*.30}
+  const rim=Math.exp(-(((q+.04)/.14)**2));
+  const rid=clip((bil(TV,512,hxw*120+50,hyw*120+300+t*.6)-.86)*7,0,1);
+  const a=rim*(.20+.9*rid)*(.5+nA)+rid*clip(-q,0,1)*.25;
+  o[0]=r+a*.95;o[1]=g+a*.16;o[2]=b+a*.34;
+}
+
+function eyePix(p,P){
+  const {z,px,near,ou,gx,gy,Rp,Rps,fade}=P;
+  const u=X[p]/z,v=Y[p]/z,pu=u-gx,pv=v-gy,r=Math.hypot(pu,pv);
+  let s,vt,vu,vl,du_in,dl_in,m_in;
+  if(near){s=u/WO;const sa=clip(s,-1.3,1.3),wu=sa<-.12?.88:1.12;
+    const cu=Math.pow(clip(1-((sa+.12)/wu)**2,0,1),.8),cl=Math.pow(clip(1-(sa-.08)**2,0,1),.9);
+    vt=v+.055*s;const vc=.03*cl;vl=vc+(HL*cl-vc)*(.35+.65*ou);vu=vl+(-HU*cu-vl)*ou;
+    du_in=vt-vu;dl_in=vl-vt;m_in=clip(Math.min(du_in,dl_in)/(1.6*px)+.5,0,1)}
+  const ang=mod(Math.atan2(pv,pu)/(2*Math.PI),1);
+  const ia=Math.trunc(ang*NA)%NA;
+  const rn=clip((r-Rp)/(RI-Rp),0,1.3),rb=rn*14,i0=Math.floor(rb),fr=rb-i0;
+  const fib=.55*A1[ia]+.45*(A2[(ia+i0*131)%NA]*(1-fr)+A2[(ia+(i0+1)*131)%NA]*fr);
+  const zig=Math.abs((ang*34)%1-.5)*2-.5;
+  const cr=.34+.20*(A3[ia]-.5)+.035*zig;
+  const mm=ss(-.10,.22,rn-cr);
+  let ir0=mix(.80,.42,mm),ir1=mix(.45,.20,mm),ir2=mix(.10,.06,mm);
+  const fk=.45+1.05*fib;ir0*=fk;ir1*=fk;ir2*=fk;
+  const gl_=Math.exp(-(((rn-cr)/.07)**2))*(.2+fib);ir0+=.22*gl_;ir1+=.11*gl_;
+  let m=1;
+  if(A4[ia]>.72)m*=1-.55*ss(.65,.18,rn);
+  m*=1-.82*ss(.62,1,rn);m*=.55+.45*ss(0,.07,rn);
+  if(near)m*=.30+.70*ss(0,.16,du_in);
+  ir0*=m;ir1*=m;ir2*=m;
+  let i0c,i1c,i2c;
+  if(near){
+    const cw=ss(.40,.95,Math.abs(s));
+    const sh=(.38+.62*ss(0,.22,du_in))*(.72+.28*ss(0,.10,dl_in))*(1-.30*cw);
+    let s0=mix(.80*sh,.86*sh,cw*.35),s1=mix(.82*sh,.50*sh,cw*.35),s2=mix(.86*sh,.46*sh,cw*.35);
+    const vein=clip((bil(TV2,512,u*85+40,v*85+70)-.925)*14,0,1)*(.25+.75*cw)*ss(.12,.32,Math.abs(pu));
+    const vk=vein*.65;s0=mix(s0,.62,vk);s1=mix(s1,.15,vk);s2=mix(s2,.14,vk);
+    const im=clip((RI-r)/(1.6*px)+.5,0,1);
+    i0c=mix(s0,ir0,im);i1c=mix(s1,ir1,im);i2c=mix(s2,ir2,im);
+  }else{i0c=ir0;i1c=ir1;i2c=ir2}
+  const vig=.25+.75*ss(0,.30*Rps,Rps-RS[p]);
+  const pmv=clip((Rp-r)/(1.6*px)+.5,0,1);pm[p]=pmv;
+  i0c=mix(i0c,spb[p*3]*vig,pmv);i1c=mix(i1c,spb[p*3+1]*vig,pmv);i2c=mix(i2c,spb[p*3+2]*vig,pmv);
+  if(fade>0){
+    const dd=Math.hypot(pu-.075,pv+.040),win=clip(1-(dd-.030)/(1.4*px+.004),0,1);
+    const dd2=Math.hypot(pu+.045,pv-.050),win2=clip(1-(dd2-.009)/(1.4*px+.003),0,1)*.5;
+    const w=(win+win2)*fade*1.4;i0c+=w;i1c+=w*.98;i2c+=w*.95}
+  if(!near||z>=2.6){img[p*3]=i0c;img[p*3+1]=i1c;img[p*3+2]=i2c;return}
+  // skin, brow, lid
+  const upper=vt<.5*(vu+vl);
+  const du=Math.max(vu-vt,0),dl=Math.max(vt-vl,0),dd=upper?du:dl;
+  const tx=bil(TS,1024,u*120+100,v*120+100);
+  const tk=.90+.20*tx;let k0=.62*tk,k1=.40*tk,k2=.29*tk;
+  let sh=.50+.50*ss(0,.30,dd);sh*=1+.10*Math.exp(-(((v+.20)/.09)**2));
+  const cr_pos=.075+.03*(1-ou);
+  if(upper)sh*=1-.42*Math.exp(-(((du-cr_pos)/.020)**2));else sh*=1+.08*Math.exp(-(((dl-.09)/.04)**2));
+  k0*=sh;k1*=sh;k2*=sh;
+  if(upper){const lz=ss(cr_pos,cr_pos*.4,du)*.5;k0=mix(k0,.68*sh,lz);k1=mix(k1,.40*sh,lz);k2=mix(k2,.31*sh,lz)}
+  const sb=clip(1-Math.abs(s),0,1);
+  const eb=Math.exp(-(((vt+.42+.10*s*s)/(.040+.012*sb))**2));
+  const hair=.55+.9*bil(TW,512,u*90,v*30);
+  const ek=clip(eb*hair,0,.92);k0=mix(k0,.10,ek);k1=mix(k1,.06,ek);k2=mix(k2,.04,ek);
+  if(upper){const lk=clip(Math.exp(-((du/.010)**2))*(1-.3*ou)*.9,0,1);k0=mix(k0,.05,lk);k1=mix(k1,.03,lk);k2=mix(k2,.022,lk)}
+  else{const wl=ss(.014,0,dl)*.7;k0=mix(k0,.74,wl);k1=mix(k1,.34,wl);k2=mix(k2,.30,wl);
+    const gl=Math.exp(-(((dl-.016)/.006)**2))*(.35+.65*bil(TW,512,u*60,v*60))*.55*ss(.12,.5,ou);k0+=gl;k1+=gl*.85;k2+=gl*.75}
+  if(bil(TW,512,u*150+7,v*150+3)>.985){const sp_=.35*(.4+tx)*ss(0,.3,dd);k0+=sp_;k1+=sp_*.9;k2+=sp_*.8}
+  let c0=mix(k0,i0c,m_in),c1=mix(k1,i1c,m_in),c2=mix(k2,i2c,m_in);
+  const cg=Math.exp(-(((u+WO*.90)/.045)**2+((vt-.025)/.032)**2))*ss(.1,.5,ou)*.85;
+  img[p*3]=mix(c0,.82,cg);img[p*3+1]=mix(c1,.42,cg);img[p*3+2]=mix(c2,.38,cg);
+}
+
+// ---- world ----
+let streaks=[];const S={last:0,next_shoot:1e9,comet:false};
+function reset(){S.last=0;S.next_shoot=1e9;S.comet=false;streaks=[];for(let i=0;i<NS;i++)SD[i]=uni(rng,.06,1)}
+function update_world(t,dt,prog){
+  const vf=.010+.05*prog+(t>T_SPACE?.015:0);
+  for(let i=0;i<NS;i++){SD[i]-=vf*dt;if(SD[i]<.06){SD[i]+=.94;SX[i]=uni(rng,-1,1);SY[i]=uni(rng,-1,1)}}
+  if(S.next_shoot>1e8&&t>T_SPACE-4)S.next_shoot=t+1;
+  if(t>S.next_shoot){S.next_shoot=t+uni(prnd,2.2,4.5);const ang=uni(prnd,18,62)*Math.PI/180,sgn=prnd()<.5?-1:1,spd=uni(prnd,.7,1.2);
+    streaks.push({x:uni(prnd,-.7,.7),y:uni(prnd,-.45,-.15),vx:sgn*Math.cos(ang)*spd,vy:Math.sin(ang)*spd,life:uni(prnd,.9,1.4),tail:uni(prnd,.14,.26),col:[.88,.94,1],soft:false,age:0})}
+  if(t>T_SPACE+1.5&&!S.comet){S.comet=true;streaks.push({x:-.95,y:-.28,vx:.030,vy:.008,life:70,tail:.22,col:[.70,.86,1],soft:true,age:0})}
+  for(const s of streaks)s.age+=dt;streaks=streaks.filter(s=>s.age<s.life)}
+
+const idx=new Int32Array(NC), fg=new Float32Array(NC*3), L=new Float32Array(NC), pmc=new Float32Array(NC), vigc=new Float32Array(NC);
+function put(r,c,ch,col,a){if(r>=0&&r<ROWS&&c>=0&&c<COLS){const k=r*COLS+c;idx[k]=CIDX[ch];fg[k*3]=col[0]*a;fg[k*3+1]=col[1]*a;fg[k*3+2]=col[2]*a}}
+
+function stamp_streak(s){
+  const hx=s.x+s.vx*s.age,hy=s.y+s.vy*s.age,sp=Math.hypot(s.vx,s.vy),dx=s.vx/sp,dy=s.vy/sp;
+  const fade=Math.pow(Math.sin(Math.PI*Math.min(1,s.age/s.life)),.7);if(fade<.02)return;
+  const tc=Math.abs(dy)<.38*Math.abs(dx)?"-":Math.abs(dx)<.38*Math.abs(dy)?"|":dx*dy>0?"\\":"/";
+  const n=Math.max(6,Math.trunc(s.tail*H/(CW*.8)));
+  for(let k=0;k<n;k++){const f=k/n;const c=Math.trunc((W/2+(hx-dx*s.tail*f)*H)/CW),r=Math.trunc((H/2+(hy-dy*s.tail*f)*H)/CH);
+    const b=Math.pow(1-f,1.3)*fade;if(b<.08||!(r>=0&&r<ROWS&&c>=0&&c<COLS)||pmc[r*COLS+c]<.5)continue;
+    const ch=k===0?(s.soft?"*":"@"):s.soft?(b>.35?":":"."):(b>.30?tc:".");
+    put(r,c,ch,s.col,Math.min(1,.3+b)*vigc[r*COLS+c])}}
+
+function stamp_stars(t,gs,amt,offx,offy){
+  if(amt<=.003)return;const big=[];
+  for(let i=0;i<NS;i++){const d=SD[i];
+    const c=Math.trunc((W*.5+(SX[i]*gs/d+offx)*H)/CW),r=Math.trunc((H*.5+(SY[i]*gs/d+offy)*H)/CH);
+    if(c<0||c>=COLS||r<0||r>=ROWS)continue;
+    const alpha=ss(1,.82,d)*(.80+.20*Math.sin(t*SF[i]+SPH[i]))*amt;if(!(alpha>.04))continue;
+    const k=r*COLS+c;if(!(pmc[k]>.5))continue;
+    const b=SB[i]*alpha*(1+.05/d);if(!(b>L[k]*.7))continue;
+    idx[k]=CIDX[b<.20?".":b<.42?"+":"*"];const a=clip(.35+.9*b,0,1)*vigc[k];
+    fg[k*3]=SCOL[i*3]*a;fg[k*3+1]=SCOL[i*3+1]*a;fg[k*3+2]=SCOL[i*3+2]*a;
+    if(b>.55&&big.length<40)big.push([c,r,b,i])}
+  for(const [cc,rr,bb,i] of big){const v=vigc[rr*COLS+cc],col=[SCOL[i*3]*v,SCOL[i*3+1]*v,SCOL[i*3+2]*v];
+    idx[rr*COLS+cc]=CIDX[bb>.85?"@":"*"];const ln=Math.trunc(2+6*(bb-.5));
+    for(let k=1;k<=ln;k++){const a=(1-k/(ln+1))*bb,dk=Math.floor(k/2)+(k>2?1:0);
+      for(const [dr,dc,chh] of [[0,k,"-"],[0,-k,"-"],[dk,0,"|"],[-dk,0,"|"]]){if(dr===0&&dc===0)continue;
+        const r2=rr+dr,c2=cc+dc;if(r2>=0&&r2<ROWS&&c2>=0&&c2<COLS){const k2=r2*COLS+c2;
+          if(pmc[k2]>.5&&L[k2]<a*.8){idx[k2]=CIDX[a>.18?chh:"."];const m=Math.min(1,.25+a);fg[k2*3]=col[0]*m;fg[k2*3+1]=col[1]*m;fg[k2*3+2]=col[2]*m}}}}}}
+
+function stamp_lashes(z,ou){
+  if(z>2.6||ou<0)return;const cl=1-Math.pow(ou,.8);
+  const pick=aa=>{const ang=mod(Math.atan2(-Math.sin(aa),Math.cos(aa))*180/Math.PI,180);return ang<25||ang>=155?"-":ang<70?"/":ang<110?"|":"\\"};
+  function draw(bu,bv,a0,Lh,curl,cr,ct,nmax,tip){
+    const n=Math.trunc(Math.max(2,Math.min(nmax,Lh*z*H/(CW*.85))));const step=Lh/n;let ue=bu,ve=bv;
+    for(let k=0;k<n;k++){const tt=k/Math.max(1,n-1),aa=a0+curl*tt*tt;ue+=Math.cos(aa)*step;ve+=Math.sin(aa)*step;
+      const c=Math.trunc((W/2+ue*z*H)/CW),r=Math.trunc((H/2+ve*z*H)/CH);if(!(r>=0&&r<ROWS&&c>=0&&c<COLS))continue;
+      const ch=(k===n-1&&n>=4)?tip:pick(aa);const q=r*COLS+c;idx[q]=CIDX[ch];
+      fg[q*3]=cr[0]+(ct[0]-cr[0])*tt;fg[q*3+1]=cr[1]+(ct[1]-cr[1])*tt;fg[q*3+2]=cr[2]+(ct[2]-cr[2])*tt}}
+  const rad=Math.PI/180;
+  for(const [s0,lf] of UP_L){const u0=s0*WO,[vu]=lid_edges(u0,ou),bv=vu-.055*s0;
+    const ao=(-90+26*s0)*rad,ac=s0>=0?(90-20*s0)*rad:(-270-20*s0)*rad,a0=ao+(ac-ao)*cl;
+    const edge=Math.sqrt(Math.max(0,1-s0*s0)),Lh=(.070+.050*edge)*lf,curl=(-22*s0)*rad*(1-cl);
+    draw(u0,bv,a0,Lh,curl,[.16,.10,.07],[.30,.19,.13],14,"'")}
+  for(const [s0,lf] of LO_L){const u0=s0*WO,e=lid_edges(u0,ou),bv=e[1]-.055*s0;
+    draw(u0,bv,(90-20*s0)*rad,.034*(.5+.8*e[3])*lf,12*(s0>0?1:-1)*rad,[.17,.11,.08],[.30,.20,.14],6,".")}}
+
+// bloom buffers
+const bb=new Float32Array(NP*3);
+const bufs={};for(const f of [2,4]){const n=(GH/f)*(GW/f)*3;bufs[f]=[new Float32Array(n),new Float32Array(n)]}
+function bloom(){
+  for(let i=0;i<NP*3;i++)bb[i]=Math.max(img[i]-.45,0);
+  for(const [f,w] of [[2,.40],[4,.30]]){const h=GH/f,wd=GW/f;let [s,s2]=bufs[f];s.fill(0);
+    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){const o=((y/f|0)*wd+(x/f|0))*3,p=(y*GW+x)*3;s[o]+=bb[p];s[o+1]+=bb[p+1];s[o+2]+=bb[p+2]}
+    const inv=1/(f*f);for(let i=0;i<s.length;i++)s[i]*=inv;
+    for(let it=0;it<2;it++){for(let y=0;y<h;y++)for(let x=0;x<wd;x++){const o=(y*wd+x)*3,up=(((y-1+h)%h)*wd+x)*3,dn=(((y+1)%h)*wd+x)*3,lf=(y*wd+(x-1+wd)%wd)*3,rt=(y*wd+(x+1)%wd)*3;
+        for(let ch=0;ch<3;ch++)s2[o+ch]=(s[o+ch]*2+s[up+ch]+s[dn+ch]+s[lf+ch]+s[rt+ch])/6}const tmp=s;s=s2;s2=tmp}
+    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){const o=((y/f|0)*wd+(x/f|0))*3,p=(y*GW+x)*3;img[p]+=w*s[o];img[p+1]+=w*s[o+1];img[p+2]+=w*s[o+2]}}}
+
+function render_cells(t,dt){
+  S.last=t;const prog=zp(t),idle=ease(t/T_Z0);
+  const z=Math.exp(Math.log(ZEND)*prog)*(1+.05*idle+.004*Math.sin(t*.9));
+  const zsp=t<T_SPACE?z:ZEND*Math.exp(.03*(t-T_SPACE));
+  const gs=Math.min(6,GS0*zsp**1.25),gh=Math.min(1.15,GS0*z**1.25);
+  const ou=lid_open(t),[gx,gy]=gaze(t);
+  const Rp=RP0*(.76+.24*ease((t-1.8)/3.5))*(1+.025*Math.sin(1.9*t))*(1+.30*prog);
+  const Rps=Rp*z,full=Rps*.72>1.03;
+  const star_amt=ease((t-(T_Z0+1.5))/4.5),neb_amt=ease((t-(T_Z0+3.5))/8);
+  update_world(t,dt,prog);
+  const offx=gx*z,offy=gy*z;
+  const neb=neb_amt>.002,drift=ease((t-T_SPACE)/20),hm=ease((t-T_HEART)/T_HEART_D);
+  const beat=1+.03*Math.sin(t*2.6)*hm*hm,nk=1.25*neb_amt**1.3,dx=.03*drift*Math.sin(t*.07),sz=.17*gh*beat;
+  for(let p=0;p<NP;p++){let r=.004,g=.005,b=.012;
+    if(neb){heartPix(X[p]-offx-dx,Y[p]-offy,sz,hm,t,out3);r+=out3[0]*nk;g+=out3[1]*nk;b+=out3[2]*nk}
+    spb[p*3]=r;spb[p*3+1]=g;spb[p*3+2]=b}
+  if(full){img.set(spb);pm.fill(1)}
+  else{const P={z,px:1/z/GH,near:z<3.4,ou,gx,gy,Rp,Rps,fade:Math.max(0,Math.min(1,1-(z-1.6)/2.4))};for(let p=0;p<NP;p++)eyePix(p,P)}
+  bloom();
+  const et=ease(t/1.2);
+  for(let p=0;p<NP;p++){const vm=(1-.30*ss(.4,1,RS[p]))*et;for(let ch=0;ch<3;ch++)img[p*3+ch]=(1-Math.exp(-2*Math.max(img[p*3+ch],0)))*vm}
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const k=r*COLS+c;let a0=0,a1=0,a2=0,pp=0;
+    for(let dy=0;dy<2;dy++)for(let dx2=0;dx2<2;dx2++){const p=(r*2+dy)*GW+c*2+dx2;a0+=img[p*3];a1+=img[p*3+1];a2+=img[p*3+2];pp+=pm[p]}
+    a0/=4;a1/=4;a2/=4;pmc[k]=full?1:pp/4;
+    const li=Math.pow(clip(.30*a0+.60*a1+.10*a2,0,1),.72);L[k]=li;
+    let ri=Math.trunc(clip((li+(HSC[k]-.5)*.07)*NR,0,NR));if(!full&&pmc[k]<.5)ri=Math.max(ri,3);idx[k]=ri;
+    fg[k*3]=clip(a0*1.15,0,1);fg[k*3+1]=clip(a1*1.15,0,1);fg[k*3+2]=clip(a2*1.15,0,1);
+    vigc[k]=.25+.75*ss(0,.30*Rps,Rps-RSC[k])}
+  stamp_stars(t,gs,star_amt,offx,offy);
+  for(const s of streaks)stamp_streak(s);
+  if(!full)stamp_lashes(z,ou);
+}
+
+// ---- canvas ----
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const HEX=[];for(let i=0;i<QL;i++)HEX.push((Math.floor(i*255/(QL-1))).toString(16).padStart(2,'0'));
+function fit(){const sc=Math.min(innerWidth/W,innerHeight/H),dpr=window.devicePixelRatio||1;
+  cv.style.width=Math.floor(W*sc)+'px';cv.style.height=Math.floor(H*sc)+'px';cv.width=Math.round(W*sc*dpr);cv.height=Math.round(H*sc*dpr);
+  ctx.setTransform(sc*dpr,0,0,sc*dpr,0,0);ctx.font=`bold ${FONT_PX}px "Cascadia Mono",Consolas,"DejaVu Sans Mono","Courier New",monospace`;
+  ctx.textAlign='center';ctx.textBaseline='middle'}
+addEventListener('resize',fit);fit();
+function draw(){ctx.fillStyle='#010203';ctx.fillRect(0,0,W,H);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const k=r*COLS+c,i=idx[k];if(i===0)continue;
+    const q0=clip(Math.trunc(clip(fg[k*3],0,1)*(QL-.01)),0,QL-1),q1=clip(Math.trunc(clip(fg[k*3+1],0,1)*(QL-.01)),0,QL-1),q2=clip(Math.trunc(clip(fg[k*3+2],0,1)*(QL-.01)),0,QL-1);
+    ctx.fillStyle='#'+HEX[q0]+HEX[q1]+HEX[q2];ctx.fillText(RAMP[i],(c+.5)*CW,(r+.5)*CH)}
+  drawMsg(curT)}
+
+// ---- message, typed out once the heart has fully opened ----
+const MSG=[["Для тебе, Дівчино",1.0],["від парубка ♥",0.8]];
+const T_MSG=T_HEART+T_HEART_D+0.4, CPS=9;
+function drawMsg(t){
+  const dt=t-T_MSG;if(dt<0)return;
+  let shown=Math.floor(dt*CPS);
+  const rows=[ROWS-5,ROWS-3];
+  ctx.save();ctx.font=`bold ${FONT_PX*1.25}px "Cascadia Mono",Consolas,"DejaVu Sans Mono","Courier New",monospace`;
+  MSG.forEach(([line,b],li)=>{const n=Math.min(line.length,Math.max(0,shown));shown-=line.length+3;
+    const sw=CW*1.25,x0=W/2-line.length*sw/2,y=(rows[li]+.5)*CH;
+    for(let i=0;i<n;i++){const ch=line[i];if(ch===' ')continue;
+      const fresh=Math.max(0,1-(dt*CPS-(i+(li?MSG[0][0].length+3:0)))/4);
+      ctx.shadowColor='rgba(255,70,130,.9)';ctx.shadowBlur=8+10*fresh;
+      const g=Math.round(150+105*fresh*b),bl=Math.round(190+65*fresh*b);
+      ctx.fillStyle=`rgb(255,${g},${bl})`;ctx.globalAlpha=b;ctx.fillText(ch,x0+(i+.5)*sw,y)}
+    if(n<line.length&&n>0&&Math.floor(t*3)%2===0){ctx.shadowBlur=0;ctx.fillStyle='#ff9cc0';ctx.fillText('_',x0+(n+.5)*sw,y)}});
+  ctx.restore()}
+
+let t0=performance.now(),lastF=-1,curT=0;
+function restart(){t0=performance.now();lastF=-1;reset()}
+addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')restart()});
+cv.addEventListener('click',restart);
+function tick(now){const t=(now-t0)/1000;if(t-lastF>=1/FPS-.002||lastF<0){const dt=Math.min(Math.max(t-S.last,0),.1);render_cells(t,dt);curT=t;draw();lastF=t}requestAnimationFrame(tick)}
+reset();render_cells(0,0);draw();requestAnimationFrame(tick);
+</script>
